@@ -45,7 +45,14 @@ const Header = () => {
               </SignInButton>
         </SignedOut>
         <SignedIn>
-                <UserButton />
+                <UserButton 
+                appearance={{
+                  elements: {
+                   avatarBox: "w-10 h-10",
+                    
+                  }
+                }} 
+                />
         </SignedIn>
         </div>
           </nav>
