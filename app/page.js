@@ -1,10 +1,10 @@
+import { Button } from "@/components/ui/button";
 
 
 export default function Home() {
-  return ( <div>
-    <h1>Welcome to My App</h1>
-
-
+  return ( 
+  <div className="mt-40">
+    <Button variant="destructive">Subscribe to me </Button>
   </div>
   )}
     
