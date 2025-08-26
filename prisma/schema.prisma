@@ -1,20 +1,12 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl= env("DIRECT_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
-
 
 model User {
   id            String    @id @default(uuid())
@@ -48,18 +40,18 @@ model Account {
 }
 
 model Transaction {
-  id               String            @id @default(uuid())
+  id                String            @id @default(uuid())
   type             TransactionType
   amount           Decimal
   description      String?
   date             DateTime
-  category         String            // This will store the category ID from our predefined categories
+  category         String           
   receiptUrl       String?
   isRecurring      Boolean           @default(false)
   recurringInterval RecurringInterval? // Only used if isRecurring is true
   nextRecurringDate DateTime?         // Next date for recurring transaction
+  lastProcessed    DateTime?         // Last time this recurring transaction was processed
   status           TransactionStatus  @default(COMPLETED)
-  notes            String?
   userId           String
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId        String
@@ -72,13 +64,12 @@ model Transaction {
   @@map("transactions")
 }
 
+
 model Budget {
   id          String       @id @default(uuid())
   amount      Decimal
-  period      BudgetPeriod // Already defines if it's daily/weekly/monthly/yearly
-  startDate   DateTime
-  endDate     DateTime?    // Optional end date for the budget
-  userId      String       @unique 
+  lastAlertSent DateTime?  // Track when the last alert was sent
+  userId      String       @unique
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -101,13 +92,6 @@ enum TransactionStatus {
   PENDING
   COMPLETED
   FAILED
-}
-
-enum BudgetPeriod {
-  DAILY
-  WEEKLY
-  MONTHLY
-  YEARLY
 }
 
 enum RecurringInterval {
