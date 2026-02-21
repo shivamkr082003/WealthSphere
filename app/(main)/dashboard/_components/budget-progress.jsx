@@ -31,7 +31,7 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
   } = useFetch(updateBudget);
 
   const percentUsed = initialBudget
-    ? (currentExpenses / initialBudget.amount)*100
+    ? (currentExpenses / initialBudget.amount) * 100
     : 0;
 
   const handleUpdateBudget = async () => {
@@ -122,25 +122,25 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
         </div>
       </CardHeader>
       <CardContent>
-        {initialBudget && (
-          <div className="space-y-2">
-            <Progress
-              value={percentUsed}
-              extraStyles={`${
-                // add to Progress component
-                percentUsed >= 90
-                  ? "bg-red-500"
-                  : percentUsed >= 75
-                    ? "bg-yellow-500"
-                    : "bg-green-500"
-              }`}
-            />
-            <p className="text-xs text-muted-foreground text-right">
-              {percentUsed.toFixed(1)}% used
-            </p>
-          </div>
-        )}
-      </CardContent>
+  {initialBudget && (
+    <div className="space-y-2">
+      <Progress
+        value={percentUsed}
+        className={`${
+          percentUsed >= 90
+            ? "bg-red-500"
+            : percentUsed >= 75
+            ? "bg-yellow-500"
+            : "bg-green-500"
+        }`}
+      />
+      <p className="text-xs text-muted-foreground text-right">
+        {percentUsed.toFixed(1)}% used
+      </p>
+    </div>
+  )}
+</CardContent>
+
     </Card>
   );
 }

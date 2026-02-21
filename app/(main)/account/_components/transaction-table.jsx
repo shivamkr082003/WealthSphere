@@ -64,7 +64,7 @@ const RECURRING_INTERVALS = {
   YEARLY: "Yearly",
 };
 
-export default function TransactionTable({ transactions }) {
+export function TransactionTable({ transactions }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [sortConfig, setSortConfig] = useState({
     field: "date",

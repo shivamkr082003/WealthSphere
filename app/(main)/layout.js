@@ -1,7 +1,17 @@
-import React from "react";
+// app/(main)/layout.jsx (ya layout.js)
+import { checkUser } from "../../lib/checkUser"; // Path sahi se check karna bhai
 
-const MainLayout = ({ children }) => {
-  return <div className="container mx-auto my-32">{children}</div>;
-};
+export default async function MainLayout({ children }) {
+  // Ye function reset ke baad pehli bar koi bhi page load hoga, 
+  // toh ye user ko database mein wapas create kar dega.
+  const user = await checkUser(); 
 
-export default MainLayout;
+  return (
+    <div className="flex flex-col min-h-screen">
+      {/* Aapka Navbar/Header yahan hoga */}
+      <main className="flex-grow container mx-auto px-4 py-8">
+        {children}
+      </main>
+    </div>
+  );
+}

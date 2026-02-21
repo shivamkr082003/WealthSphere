@@ -1,13 +1,18 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
+import { withDbConnection, handleDatabaseError } from "@/lib/db-wrapper";
 import { db } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import aj from "@/lib/arcjet";
-import { request } from "@arcjet/next";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// ✅ 1. OpenAI import karein
+import OpenAI from "openai";
+
+// ✅ 2. OpenAI Client initialize karein
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const serializeAmount = (obj) => ({
   ...obj,
@@ -15,110 +20,95 @@ const serializeAmount = (obj) => ({
 });
 
 // Create Transaction
-export async function createTransaction(data) {
+export async function createTransaction(data, req) {
   try {
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
-    // Get request data for ArcJet
-    const req = await request();
+    return await withDbConnection(async (db) => {
+      const user = await db.user.findUnique({
+        where: { clerkUserId: userId },
+      });
 
-    // Check rate limit
-    const decision = await aj.protect(req, {
-      userId,
-      requested: 1, // Specify how many tokens to consume
-    });
-
-    if (decision.isDenied()) {
-      if (decision.reason.isRateLimit()) {
-        const { remaining, reset } = decision.reason;
-        console.error({
-          code: "RATE_LIMIT_EXCEEDED",
-          details: {
-            remaining,
-            resetInSeconds: reset,
-          },
-        });
-
-        throw new Error("Too many requests. Please try again later.");
+      if (!user) {
+        throw new Error("User not found");
       }
 
-      throw new Error("Request blocked");
-    }
-
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!user) {
-      throw new Error("User not found");
-    }
-
-    const account = await db.account.findUnique({
-      where: {
-        id: data.accountId,
-        userId: user.id,
-      },
-    });
-
-    if (!account) {
-      throw new Error("Account not found");
-    }
-
-    // Calculate new balance
-    const balanceChange = data.type === "EXPENSE" ? -data.amount : data.amount;
-    const newBalance = account.balance.toNumber() + balanceChange;
-
-    // Create transaction and update account balance
-    const transaction = await db.$transaction(async (tx) => {
-      const newTransaction = await tx.transaction.create({
-        data: {
-          ...data,
+      const account = await db.account.findUnique({
+        where: {
+          id: data.accountId,
           userId: user.id,
-          nextRecurringDate:
-            data.isRecurring && data.recurringInterval
-              ? calculateNextRecurringDate(data.date, data.recurringInterval)
-              : null,
         },
       });
 
-      await tx.account.update({
-        where: { id: data.accountId },
-        data: { balance: newBalance },
+      if (!account) {
+        throw new Error("Account not found");
+      }
+
+      // Calculate new balance
+      const balanceChange =
+        data.type === "EXPENSE" ? -data.amount : data.amount;
+      const newBalance = account.balance.toNumber() + balanceChange;
+
+      // Create transaction and update account balance
+      const transaction = await db.$transaction(async (tx) => {
+        const newTransaction = await tx.transaction.create({
+          data: {
+            ...data,
+            userId: user.id,
+            nextRecurringDate:
+              data.isRecurring && data.recurringInterval
+                ? calculateNextRecurringDate(data.date, data.recurringInterval)
+                : null,
+          },
+        });
+
+        await tx.account.update({
+          where: { id: data.accountId },
+          data: { balance: newBalance },
+        });
+
+        return newTransaction;
       });
 
-      return newTransaction;
+      revalidatePath("/dashboard");
+      revalidatePath(`/account/${transaction.accountId}`);
+
+      return { success: true, data: serializeAmount(transaction) };
     });
-
-    revalidatePath("/dashboard");
-    revalidatePath(`/account/${transaction.accountId}`);
-
-    return { success: true, data: serializeAmount(transaction) };
   } catch (error) {
-    throw new Error(error.message);
+    const dbError = handleDatabaseError(error);
+    throw new Error(dbError.message);
   }
 }
 
 export async function getTransaction(id) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  try {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
+    return await withDbConnection(async (db) => {
+      const user = await db.user.findUnique({
+        where: { clerkUserId: userId },
+      });
 
-  if (!user) throw new Error("User not found");
+      if (!user) throw new Error("User not found");
 
-  const transaction = await db.transaction.findUnique({
-    where: {
-      id,
-      userId: user.id,
-    },
-  });
+      const transaction = await db.transaction.findUnique({
+        where: {
+          id,
+          userId: user.id,
+        },
+      });
 
-  if (!transaction) throw new Error("Transaction not found");
+      if (!transaction) throw new Error("Transaction not found");
 
-  return serializeAmount(transaction);
+      return serializeAmount(transaction);
+    });
+  } catch (error) {
+    const dbError = handleDatabaseError(error);
+    throw new Error(dbError.message);
+  }
 }
 
 export async function updateTransaction(id, data) {
@@ -227,68 +217,73 @@ export async function getUserTransactions(query = {}) {
   }
 }
 
-// Scan Receipt
+
+
+
+
+// ✅ 3. Scan Receipt Function (Refactored for OpenAI)
 export async function scanReceipt(file) {
+  console.log("--- SCAN START ---", file.name, file.size);
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
 
     // Convert File to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
-    // Convert ArrayBuffer to Base64
+    // Convert ArrayBuffer to Base64 string
     const base64String = Buffer.from(arrayBuffer).toString("base64");
 
-    const prompt = `
-      Analyze this receipt image and extract the following information in JSON format:
-      - Total amount (just the number)
-      - Date (in ISO format)
-      - Description or items purchased (brief summary)
-      - Merchant/store name
-      - Suggested category (one of: housing,transportation,groceries,utilities,entertainment,food,shopping,healthcare,education,personal,travel,insurance,gifts,bills,other-expense )
-      
-      Only respond with valid JSON in this exact format:
-      {
-        "amount": number,
-        "date": "ISO date string",
-        "description": "string",
-        "merchantName": "string",
-        "category": "string"
-      }
+    // OpenAI Chat Completion with Vision
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o", // Vision support ke liye best model
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this receipt image and extract the following information in JSON format:
+              - Total amount (number only)
+              - Date (ISO format)
+              - Description (brief summary)
+              - Merchant name
+              - Category (one of: housing, transportation, groceries, utilities, entertainment, food, shopping, healthcare, education, personal, travel, insurance, gifts, bills, other-expense)
 
-      If its not a recipt, return an empty object
-    `;
-
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: base64String,
-          mimeType: file.type,
+              Return only valid JSON. If not a receipt, return empty object {}.`,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${file.type || "image/jpeg"};base64,${base64String}`,
+              },
+            },
+          ],
         },
-      },
-      prompt,
-    ]);
+      ],
+      response_format: { type: "json_object" }, // ✅ Sabse bada fayda: Strict JSON output
+    });
+    console.log("OpenAI Response:", response.choices[0].message.content); // ✅ Debugging ke liye
+    const data = JSON.parse(response.choices[0].message.content);
 
-    const response = await result.response;
-    const text = response.text();
-    const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
-
-    try {
-      const data = JSON.parse(cleanedText);
-      return {
-        amount: parseFloat(data.amount),
-        date: new Date(data.date),
-        description: data.description,
-        category: data.category,
-        merchantName: data.merchantName,
-      };
-    } catch (parseError) {
-      console.error("Error parsing JSON response:", parseError);
-      throw new Error("Invalid response format from Gemini");
+    // Agar empty object hai (not a receipt)
+    if (Object.keys(data).length === 0) {
+      return null;
     }
+
+    return {
+      amount: parseFloat(data["Total amount"] || data.amount || 0),
+  date: data.Date ? new Date(data.Date) : new Date(),
+  description: data.Description || data.description || "",
+  category: data.Category || data.category || "food",
+  merchantName: data["Merchant name"] || data.merchantName || "",
+    };
   } catch (error) {
-    console.error("Error scanning receipt:", error);
+    console.error("Error scanning receipt with OpenAI:", error);
     throw new Error("Failed to scan receipt");
   }
 }
+
+
 
 // Helper function to calculate next recurring date
 function calculateNextRecurringDate(startDate, interval) {
