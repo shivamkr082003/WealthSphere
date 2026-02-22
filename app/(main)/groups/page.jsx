@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getUserGroups, getUserInvitations } from "@/actions/groups";
 import { CreateGroupDialog } from "./_components/create-group-dialog";
 import { GroupCard } from "./_components/group-card";

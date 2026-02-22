@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { Suspense } from "react";
 import React from "react";
 import { getUserAccounts } from "@/actions/dashboard";
@@ -11,6 +13,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { DashboardOverview } from "./_components/transaction-overview";
 import { DashboardFallback } from "./_components/dashboard-fallback";
+
+
 import { DashboardSkeleton } from "@/components/ui/loading";
 import { currentUser } from "@clerk/nextjs/server";
 import ProtectedRoute from "./protected-route";
