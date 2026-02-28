@@ -1,8 +1,9 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "./components/header";
-import { ClerkProvider } from "@clerk/nextjs";
+import Header from "@/components/Header";
 import ErrorBoundary from "@/components/custom-error-boundary";
+import { ClerkProvider } from "@clerk/nextjs";
+// import ErrorBoundary from "@/components/custom-error-boundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
