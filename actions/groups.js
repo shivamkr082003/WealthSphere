@@ -663,7 +663,7 @@ const inviteToken = await db.groupInvitation.create({
   },
 });
 
-    const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/invite/${groupId}/${token}`;
+    const inviteUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://wealth-sphere-hqr5.vercel.app"}/invite/${groupId}/${token}`;
 
     return {
       success: true,
