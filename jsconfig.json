@@ -4,5 +4,7 @@
     "paths": {
       "@/*": ["./*"]
     }
-  }
+  },
+  "include": ["next-env.d.ts", "**/*.js", "**/*.jsx", "app", "components"],
+  "exclude": ["node_modules"]
 }
