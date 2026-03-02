@@ -12,7 +12,7 @@ export function DatabaseStatus() {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/ping");
+      const response = await fetch("/api/dbcheck");
       const data = await response.json();
 
       setStatus({
