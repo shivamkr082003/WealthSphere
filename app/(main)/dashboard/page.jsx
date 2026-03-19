@@ -8,14 +8,9 @@ import { getCurrentBudget } from "@/actions/budget";
 import { AccountCard } from "./_components/account-card";
 import { CreateAccountDrawer } from "@/components/create-account-drawer";
 import { BudgetProgress } from "./_components/budget-progress";
-import { DatabaseStatus } from "@/components/database-status";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { DashboardOverview } from "./_components/transaction-overview";
-import { DashboardFallback } from "./_components/dashboard-fallback";
-
-
-import { DashboardSkeleton } from "@/components/ui/loading";
 import { currentUser } from "@clerk/nextjs/server";
 import ProtectedRoute from "./protected-route";
 
@@ -85,11 +80,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Database Status */}
-      <Suspense fallback={<div>Checking database connection...</div>}>
-        <DatabaseStatus />
-      </Suspense>
-
       {/* Budget Progress */}
       <Suspense
         fallback={<div className="h-24 bg-gray-100 rounded animate-pulse" />}
